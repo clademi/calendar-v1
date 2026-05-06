@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>排班日曆</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── Variables ── */
+:root {
+  --cream:     #faf7f2;
+  --cream2:    #f2ede4;
+  --cream3:    #e8e0d4;
+  --white:     #ffffff;
+  --border:    #ddd5c8;
+  --border2:   #c8bcac;
+  --ink:       #2c2418;
+  --ink2:      #6b5d4e;
+  --ink3:      #a8977e;
+  --terracotta:#c4623a;
+  --terra-bg:  #fdf1ec;
+  --terra-bd:  #f0c4b0;
+  --sage:      #5a7a5e;
+  --sage-bg:   #edf5ee;
+  --sage-bd:   #b8d4bb;
+  --gold:      #b8882a;
+  --gold-bg:   #fdf8ec;
+  --gold-bd:   #e8d090;
+  --sat-c:     #5a6ea8;
+  --sun-c:     #c4623a;
+  --r:         10px;
+  --shadow:    0 2px 12px rgba(44,36,24,.08);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--cream);
+  color: var(--ink);
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* ══════════════════════════════
+   PAGE SYSTEM
+══════════════════════════════ */
+.page { display: none; height: 100vh; overflow: hidden; }
+.page.active { display: flex; }
+
+/* ══════════════════════════════
+   CALENDAR PAGE
+══════════════════════════════ */
+#calPage { flex-direction: row; }
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 216px;
+  flex-shrink: 0;
+  background: var(--white);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow);
+  z-index: 10;
+}
+
+.logo {
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid var(--border);
+  font-family: 'Lora', serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: .01em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.logo-mark {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  background: var(--terracotta);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0;
+}
+
+.sb-scroll { flex: 1; overflow-y: auto; padding-bottom: 8px; }
+
+.sb-section { padding: 16px 16px 8px; }
+.sb-label {
+  font-size: 9.5px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  font-family: 'DM Mono', monospace;
+  font-weight: 500;
+}
+
+/* Stats */
+.stats-wrap { padding: 0 12px 8px; display: flex; flex-direction: column; gap: 4px; }
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.stat-label { font-size: 12px; color: var(--ink2); }
+.stat-value { font-size: 18px; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--ink); }
+
+/* Drag tags */
+.tags-wrap { padding: 0 12px 8px; display: flex; flex-direction: column; gap: 4px; }
+
+.drag-tag {
+  display: flex;
+  align-items: center;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1.5px solid;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: grab;
+  user-select: none;
+  transition: box-shadow .15s, transform .12s, opacity .15s;
+  position: relative;
+}
+.drag-tag:hover { box-shadow: 0 3px 12px rgba(0,0,0,.1); }
+.drag-tag:active { cursor: grabbing; transform: scale(.97); }
+.drag-tag.dragging { opacity: .35; }
+
+.drag-tag.rest {
+  background: var(--sage-bg);
+  border-color: var(--sage-bd);
+  color: var(--sage);
+}
+.drag-tag.course {
+  background: var(--terra-bg);
+  border-color: var(--terra-bd);
+  color: var(--terracotta);
+}
+
+.tag-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tag-hint {
+  font-size: 9.5px;
+  opacity: .5;
+  margin-left: 6px;
+  font-family: 'DM Mono', monospace;
+  flex-shrink: 0;
+}
+.no-tags { font-size: 12px; color: var(--ink3); padding: 4px 4px; }
+
+/* Sidebar bottom */
+.sb-bottom {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.settings-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--ink2);
+  font-size: 13px;
+  font-family: 'Noto Sans TC', sans-serif;
+  cursor: pointer;
+  transition: all .15s;
+}
+.settings-btn:hover {
+  border-color: var(--terracotta);
+  color: var(--terracotta);
+  background: var(--terra-bg);
+}
+
+/* ── Main calendar area ── */
+.cal-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.cal-header {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.mob-toggle { display: none; }
+
+.nav-btn {
+  background: var(--cream);
+  border: 1px solid var(--border);
+  color: var(--ink2);
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .13s;
+  flex-shrink: 0;
+}
+.nav-btn:hover { border-color: var(--ink); color: var(--ink); }
+
+.month-display {
+  font-family: 'Lora', serif;
+  font-size: 22px;
+  font-weight: 700;
+  min-width: 175px;
+}
+.month-yr {
+  font-size: 13px;
+  color: var(--ink3);
+  font-family: 'DM Mono', monospace;
+  margin-right: 6px;
+  font-weight: 400;
+}
+
+.today-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--ink2);
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: 'Noto Sans TC', sans-serif;
+  transition: all .13s;
+}
+.today-btn:hover { border-color: var(--terracotta); color: var(--terracotta); }
+
+.header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+/* Sync button */
+.sync-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--terracotta);
+  color: #fff;
+  font-size: 12.5px;
+  font-family: 'Noto Sans TC', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s, transform .12s;
+}
+.sync-btn:hover { opacity: .88; }
+.sync-btn:active { transform: scale(.97); }
+.sync-btn:disabled { opacity: .5; cursor: not-allowed; }
+.sync-btn .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.7);
+  flex-shrink: 0;
+}
+.sync-btn .dot.pending { background: #fff; animation: glow 1s infinite; }
+@keyframes glow { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── Calendar grid ── */
+.cal-wrap { flex: 1; overflow-y: auto; padding: 16px 20px 28px; }
+
+.weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  position: sticky;
+  top: 0;
+  background: var(--cream);
+  z-index: 5;
+  padding: 6px 0 5px;
+  margin-bottom: 2px;
+}
+.wd {
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: .12em;
+  color: var(--ink3);
+  font-family: 'DM Mono', monospace;
+  text-transform: uppercase;
+  padding: 4px 0;
+}
+.wd.sat { color: var(--sat-c); }
+.wd.sun { color: var(--sun-c); }
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.day-cell {
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  min-height: 108px;
+  padding: 8px 7px 6px;
+  transition: border-color .13s, box-shadow .13s, background .13s;
+}
+.day-cell.other-month {
+  background: var(--cream2);
+  opacity: .45;
+  pointer-events: none;
+}
+.day-cell.today {
+  border-color: var(--terracotta);
+  box-shadow: 0 0 0 3px rgba(196,98,58,.1);
+}
+.day-cell.today .day-num { color: var(--terracotta); font-weight: 700; }
+.day-cell.saturday .day-num { color: var(--sat-c); }
+.day-cell.sunday .day-num { color: var(--sun-c); }
+
+/* Drop highlights */
+.day-cell.drop-rest {
+  border-color: var(--sage) !important;
+  box-shadow: 0 0 0 3px rgba(90,122,94,.14) !important;
+  background: rgba(90,122,94,.04) !important;
+}
+.day-cell.drop-course {
+  border-color: var(--terracotta) !important;
+  box-shadow: 0 0 0 3px rgba(196,98,58,.12) !important;
+  background: rgba(196,98,58,.03) !important;
+}
+
+.day-num {
+  font-size: 12px;
+  font-family: 'DM Mono', monospace;
+  color: var(--ink3);
+  margin-bottom: 5px;
+  line-height: 1;
+}
+.day-events { display: flex; flex-direction: column; gap: 3px; }
+
+/* Event cards */
+.ev-course {
+  display: flex;
+  align-items: center;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: var(--terra-bg);
+  border: 1px solid var(--terra-bd);
+  color: var(--terracotta);
+  font-size: 11px;
+  font-weight: 600;
+  position: relative;
+}
+.ev-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 16px;
+}
+.ev-del {
+  display: none;
+  position: absolute;
+  top: 3px; right: 4px;
+  border: none;
+  background: rgba(196,98,58,.15);
+  color: var(--terracotta);
+  font-size: 9px;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 1px 4px;
+  line-height: 14px;
+}
+.ev-course:hover .ev-del { display: block; }
+
+.ev-rest {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: var(--sage-bg);
+  border: 1px solid var(--sage-bd);
+  color: var(--sage);
+  font-size: 11px;
+  font-weight: 600;
+  position: relative;
+}
+.ev-rest-del {
+  display: none;
+  position: absolute;
+  top: 3px; right: 4px;
+  border: none;
+  background: rgba(90,122,94,.15);
+  color: var(--sage);
+  font-size: 9px;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 1px 4px;
+  line-height: 14px;
+}
+.ev-rest:hover .ev-rest-del { display: block; }
+
+/* ══════════════════════════════
+   SETTINGS PAGE
+══════════════════════════════ */
+#settingsPage {
+  flex-direction: column;
+  background: var(--cream);
+}
+
+.settings-header {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--ink2);
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: 'Noto Sans TC', sans-serif;
+  cursor: pointer;
+  transition: all .13s;
+}
+.back-btn:hover { border-color: var(--ink); color: var(--ink); }
+.settings-title {
+  font-family: 'Lora', serif;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.settings-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px;
+  max-width: 520px;
+}
+
+.settings-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: var(--shadow);
+}
+.settings-card-title {
+  font-family: 'Lora', serif;
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--ink);
+}
+
+/* Add tag form */
+.add-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.add-input {
+  flex: 1;
+  background: var(--cream);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 14px;
+  color: var(--ink);
+  font-size: 13px;
+  font-family: 'Noto Sans TC', sans-serif;
+  outline: none;
+  transition: border-color .15s;
+}
+.add-input:focus { border-color: var(--terracotta); }
+.add-btn {
+  background: var(--terracotta);
+  border: none;
+  color: #fff;
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: 'Noto Sans TC', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .13s;
+  white-space: nowrap;
+}
+.add-btn:hover { opacity: .85; }
+
+/* Tag items in settings */
+.tag-item-list { display: flex; flex-direction: column; gap: 6px; }
+.tag-item {
+  display: flex;
+  align-items: center;
+  padding: 9px 12px;
+  background: var(--terra-bg);
+  border: 1px solid var(--terra-bd);
+  border-radius: 8px;
+  color: var(--terracotta);
+  font-size: 13px;
+  font-weight: 600;
+}
+.tag-item-name { flex: 1; }
+.tag-item-del {
+  border: none;
+  background: rgba(196,98,58,.15);
+  color: var(--terracotta);
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 5px;
+  padding: 3px 8px;
+  transition: background .13s;
+}
+.tag-item-del:hover { background: rgba(196,98,58,.3); }
+.no-tags-msg { font-size: 13px; color: var(--ink3); padding: 8px 0; }
+
+/* Sync status in settings */
+.sync-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink3);
+  font-family: 'DM Mono', monospace;
+  margin-top: 10px;
+}
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--sage);
+  flex-shrink: 0;
+}
+.status-dot.pending { background: var(--gold); animation: glow 1s infinite; }
+.status-dot.err { background: var(--sun-c); }
+
+/* ══════════════════════════════
+   TOAST
+══════════════════════════════ */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--ink);
+  color: #fff;
+  border-radius: 20px;
+  padding: 9px 22px;
+  font-size: 12.5px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s, transform .25s;
+  z-index: 1000;
+  white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ══════════════════════════════
+   MOBILE  ≤ 640px
+══════════════════════════════ */
+@media (max-width: 640px) {
+  #calPage { flex-direction: column; }
+
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 100vh;
+    transform: translateX(-100%);
+    transition: transform .28s ease;
+    z-index: 100;
+  }
+  .sidebar.mob-open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,.15); }
+
+  .mob-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(44,36,24,.35);
+    z-index: 99;
+  }
+  .mob-overlay.show { display: block; }
+
+  .mob-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    color: var(--ink2);
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .cal-header { padding: 12px 14px; gap: 8px; }
+  .month-display { font-size: 18px; min-width: 0; }
+  .today-btn { padding: 6px 10px; font-size: 11px; }
+  .sync-btn { padding: 7px 12px; font-size: 11.5px; }
+
+  .cal-wrap { padding: 10px 10px 24px; }
+  .weekdays { gap: 3px; }
+  .wd { font-size: 8.5px; letter-spacing: 0; }
+  .cal-grid { gap: 3px; }
+  .day-cell { min-height: 68px; padding: 5px 4px 4px; border-radius: 7px; }
+  .day-num { font-size: 10px; margin-bottom: 3px; }
+  .ev-course { padding: 3px 5px; font-size: 9px; }
+  .ev-rest { padding: 3px 5px; font-size: 9px; }
+  .ev-del { display: block; font-size: 8px; }
+  .ev-rest-del { display: block; font-size: 8px; }
+  .tag-hint { display: none; }
+
+  .settings-body { padding: 20px 16px; }
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ══ CALENDAR PAGE ══ -->
+<div id="calPage" class="page active">
+
+  <!-- Mobile overlay -->
+  <div class="mob-overlay" id="mobOverlay" onclick="closeSidebar()"></div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="logo">
+      <div class="logo-mark">📅</div>
+      排班日曆
+    </div>
+
+    <div class="sb-scroll">
+
+      <!-- 1. 本月統計 -->
+      <div class="sb-section"><span class="sb-label">本月統計</span></div>
+      <div class="stats-wrap">
+        <div class="stat-row">
+          <span class="stat-label">上課天數</span>
+          <span class="stat-value" id="statCourse">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">休假天數</span>
+          <span class="stat-value" id="statRest">—</span>
+        </div>
+      </div>
+
+      <!-- 2. 排休 -->
+      <div class="sb-section"><span class="sb-label">排休</span></div>
+      <div class="tags-wrap">
+        <div class="drag-tag rest"
+          draggable="true"
+          ondragstart="onDragStart(event,'rest','')"
+          ondragend="onDragEnd(event)">
+          <span class="tag-name">🌿 休假</span>
+          <span class="tag-hint">拖入日期</span>
+        </div>
+      </div>
+
+      <!-- 3. 課程 -->
+      <div class="sb-section"><span class="sb-label">課程</span></div>
+      <div class="tags-wrap" id="courseTagList">
+        <div class="no-tags">請至設定新增課程</div>
+      </div>
+
+    </div>
+
+    <!-- Settings button -->
+    <div class="sb-bottom">
+      <button class="settings-btn" onclick="goSettings()">
+        ⚙️ <span>設定</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="cal-main">
+    <div class="cal-header">
+      <button class="mob-toggle" onclick="openSidebar()">☰</button>
+      <button class="nav-btn" id="prevBtn">‹</button>
+      <div class="month-display" id="monthDisplay"></div>
+      <button class="nav-btn" id="nextBtn">›</button>
+      <button class="today-btn" onclick="goToday()">今天</button>
+      <div class="header-right">
+        <button class="sync-btn" id="syncBtn" onclick="syncToServer()">
+          <span class="dot" id="syncDot"></span>
+          同步儲存
+        </button>
+      </div>
+    </div>
+
+    <div class="cal-wrap">
+      <div class="weekdays">
+        <div class="wd">一</div>
+        <div class="wd">二</div>
+        <div class="wd">三</div>
+        <div class="wd">四</div>
+        <div class="wd">五</div>
+        <div class="wd sat">六</div>
+        <div class="wd sun">日</div>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SETTINGS PAGE ══ -->
+<div id="settingsPage" class="page">
+  <div class="settings-header">
+    <button class="back-btn" onclick="goCalendar()">← 返回</button>
+    <div class="settings-title">設定</div>
+  </div>
+  <div class="settings-body">
+    <div class="settings-card">
+      <div class="settings-card-title">課程標籤管理</div>
+      <div class="add-row">
+        <input class="add-input" id="newTagInput" placeholder="輸入課程名稱" maxlength="30">
+        <button class="add-btn" onclick="addCourseTag()">新增</button>
+      </div>
+      <div class="tag-item-list" id="tagItemList">
+        <div class="no-tags-msg">尚無課程標籤</div>
+      </div>
+      <div class="sync-status-row">
+        <div class="status-dot" id="settingsDot"></div>
+        <span id="settingsTxt">就緒</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+const API = 'https://script.google.com/macros/s/AKfycbzN_crkxdW_7R1wE6rgvFIMS7RHe-RM_dRpL2_7l3ZrTrEJZnMAg_W_3m2vZSa02fQe/exec';
+// ══════════════════════════════════════════
+
+// ── State ────────────────────────────────
+let courses    = [];   // { date, course_name }  — current month working copy
+let restDays   = [];   // { date }               — current month working copy
+let allCourses = [];   // full data from server (all months)
+let allShifts  = [];   // full data from server (all months)
+let courseTags = [];   // { name }
+
+let hasPending = false; // unsaved local changes
+let dragType   = null;
+let dragValue  = null;
+
+const today = new Date();
+let cy = today.getFullYear();
+let cm = today.getMonth();
+
+// ── Boot ─────────────────────────────────
+init();
+
+async function init() {
+  setSyncState('pending', '載入中…');
+  renderCalHeader();
+  renderCal();
+
+  try {
+    const d = await apiGet('getAll');
+    allCourses = d.courses    || [];
+    allShifts  = d.shifts     || [];
+    courseTags = d.courseTags || [];
+    loadMonth();
+    setSyncState('ok', '已同步');
+  } catch (e) {
+    setSyncState('err', '無法連線');
+    showToast('⚠️ 無法連線，請確認網路');
+    console.error(e);
+  }
+
+  renderAll();
+}
+
+// ── Month helpers ─────────────────────────
+function monthPrefix() {
+  return `${cy}-${String(cm + 1).padStart(2, '0')}`;
+}
+
+function loadMonth() {
+  const p = monthPrefix();
+  courses  = allCourses.filter(c => c.date.startsWith(p)).map(c => ({ ...c }));
+  restDays = allShifts.filter(s => s.date.startsWith(p)).map(s => ({ ...s }));
+}
+
+function saveMonth() {
+  // Merge current month back into allCourses / allShifts
+  const p = monthPrefix();
+  allCourses = allCourses.filter(c => !c.date.startsWith(p)).concat(courses);
+  allShifts  = allShifts.filter(s => !s.date.startsWith(p)).concat(restDays);
+}
+
+// ── Navigation ────────────────────────────
+document.getElementById('prevBtn').onclick = () => {
+  saveMonth();
+  cm--; if (cm < 0) { cm = 11; cy--; }
+  loadMonth(); renderAll();
+};
+document.getElementById('nextBtn').onclick = () => {
+  saveMonth();
+  cm++; if (cm > 11) { cm = 0; cy++; }
+  loadMonth(); renderAll();
+};
+function goToday() {
+  saveMonth();
+  cy = today.getFullYear(); cm = today.getMonth();
+  loadMonth(); renderAll();
+}
+
+// ── Render all ───────────────────────────
+const MONTHS = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+
+function renderAll() {
+  renderCalHeader();
+  renderCourseTags();
+  renderCal();
+  renderStats();
+}
+
+function renderCalHeader() {
+  document.getElementById('monthDisplay').innerHTML =
+    `<span class="month-yr">${cy}</span>${MONTHS[cm]}`;
+}
+
+function renderCourseTags() {
+  const el = document.getElementById('courseTagList');
+  if (!courseTags.length) {
+    el.innerHTML = '<div class="no-tags">請至設定新增課程</div>';
+    return;
+  }
+  el.innerHTML = courseTags.map(t => `
+    <div class="drag-tag course"
+      draggable="true"
+      ondragstart="onDragStart(event,'course',${JSON.stringify(t.name)})"
+      ondragend="onDragEnd(event)">
+      <span class="tag-name">${esc(t.name)}</span>
+      <span class="tag-hint">拖入日期</span>
+    </div>`).join('');
+}
+
+function renderCal() {
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+
+  const first    = new Date(cy, cm, 1);
+  const lastDay  = new Date(cy, cm + 1, 0).getDate();
+  const jsFirst  = first.getDay(); // 0=Sun
+  const startOff = jsFirst === 0 ? 6 : jsFirst - 1; // Mon-first
+  const total    = Math.ceil((startOff + lastDay) / 7) * 7;
+
+  for (let i = 0; i < total; i++) {
+    const d      = new Date(cy, cm, i - startOff + 1);
+    const isThis = d.getMonth() === cm;
+    const isTod  = d.toDateString() === today.toDateString();
+    const ds     = fmtDate(d);
+    const dow    = d.getDay();
+
+    const cell = document.createElement('div');
+    cell.className = 'day-cell'
+      + (isThis  ? ''           : ' other-month')
+      + (isTod   ? ' today'    : '')
+      + (dow===6 ? ' saturday' : '')
+      + (dow===0 ? ' sunday'   : '');
+
+    const dayCourse = courses.find(c => c.date === ds);
+    const hasRest   = restDays.some(r => r.date === ds);
+
+    let evHtml = '';
+    if (dayCourse) {
+      evHtml += `
+        <div class="ev-course">
+          <div class="ev-name">${esc(dayCourse.course_name)}</div>
+          <button class="ev-del" onclick="deleteCourse('${ds}',event)">✕</button>
+        </div>`;
+    }
+    if (hasRest) {
+      evHtml += `
+        <div class="ev-rest">
+          <span>🌿</span><span>休假</span>
+          <button class="ev-rest-del" onclick="deleteRest('${ds}',event)">✕</button>
+        </div>`;
+    }
+
+    cell.innerHTML = `<div class="day-num">${d.getDate()}</div><div class="day-events">${evHtml}</div>`;
+
+    if (isThis) {
+      cell.addEventListener('dragover', e => {
+        e.preventDefault();
+        cell.classList.remove('drop-rest', 'drop-course');
+        if (dragType) cell.classList.add('drop-' + dragType);
+      });
+      cell.addEventListener('dragleave', () => {
+        cell.classList.remove('drop-rest', 'drop-course');
+      });
+      cell.addEventListener('drop', e => {
+        e.preventDefault();
+        cell.classList.remove('drop-rest', 'drop-course');
+        handleDrop(ds);
+      });
+    }
+
+    grid.appendChild(cell);
+  }
+}
+
+function renderStats() {
+  const p = monthPrefix();
+  document.getElementById('statCourse').textContent =
+    new Set(courses.filter(c => c.date.startsWith(p)).map(c => c.date)).size;
+  document.getElementById('statRest').textContent =
+    restDays.filter(r => r.date.startsWith(p)).length;
+}
+
+// ── Drag ─────────────────────────────────
+function onDragStart(e, type, value) {
+  dragType  = type;
+  dragValue = value;
+  e.dataTransfer.effectAllowed = 'copy';
+  e.currentTarget.classList.add('dragging');
+}
+function onDragEnd(e) {
+  dragType = dragValue = null;
+  e.currentTarget.classList.remove('dragging');
+}
+
+function handleDrop(ds) {
+  if (dragType === 'course') addCourse(ds, dragValue);
+  else if (dragType === 'rest') addRest(ds);
+}
+
+// ── Local mutations ───────────────────────
+function addCourse(ds, name) {
+  // One course per day — replace if exists
+  const idx = courses.findIndex(c => c.date === ds);
+  if (idx >= 0) courses[idx].course_name = name;
+  else courses.push({ date: ds, course_name: name });
+  markPending();
+  renderCal(); renderStats();
+  showToast(`${ds.slice(5)} 加入「${name}」`);
+}
+
+function addRest(ds) {
+  if (restDays.some(r => r.date === ds)) { showToast('此日已標記休假'); return; }
+  restDays.push({ date: ds });
+  markPending();
+  renderCal(); renderStats();
+  showToast(`${ds.slice(5)} 已標記休假`);
+}
+
+function deleteCourse(ds, e) {
+  e.stopPropagation();
+  courses = courses.filter(c => c.date !== ds);
+  markPending();
+  renderCal(); renderStats();
+  showToast('已移除課程');
+}
+
+function deleteRest(ds, e) {
+  e.stopPropagation();
+  restDays = restDays.filter(r => r.date !== ds);
+  markPending();
+  renderCal(); renderStats();
+  showToast('已移除休假');
+}
+
+function markPending() {
+  hasPending = true;
+  const dot = document.getElementById('syncDot');
+  dot.classList.add('pending');
+}
+
+// ── Sync to server ────────────────────────
+async function syncToServer() {
+  if (!hasPending) { showToast('沒有待同步的變更'); return; }
+
+  const btn = document.getElementById('syncBtn');
+  btn.disabled = true;
+  setSyncState('pending', '同步中…');
+
+  // Merge current month into full arrays before sending
+  saveMonth();
+
+  try {
+    const r = await apiPost({
+      action:  'sync',
+      courses: allCourses,
+      shifts:  allShifts,
+    });
+    if (!r.ok) throw new Error(r.error || 'sync failed');
+    hasPending = false;
+    document.getElementById('syncDot').classList.remove('pending');
+    setSyncState('ok', '已同步');
+    showToast('✓ 已同步至 Google Sheets');
+  } catch (e) {
+    setSyncState('err', '同步失敗');
+    showToast('❌ 同步失敗，請重試');
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Settings page ─────────────────────────
+function goSettings() {
+  renderSettingsPage();
+  document.getElementById('calPage').classList.remove('active');
+  document.getElementById('settingsPage').classList.add('active');
+}
+function goCalendar() {
+  document.getElementById('settingsPage').classList.remove('active');
+  document.getElementById('calPage').classList.add('active');
+  renderCourseTags(); // refresh in case tags changed
+}
+
+function renderSettingsPage() {
+  const el = document.getElementById('tagItemList');
+  if (!courseTags.length) {
+    el.innerHTML = '<div class="no-tags-msg">尚無課程標籤</div>';
+    return;
+  }
+  el.innerHTML = courseTags.map(t => `
+    <div class="tag-item">
+      <span class="tag-item-name">${esc(t.name)}</span>
+      <button class="tag-item-del" onclick="deleteCourseTag(${JSON.stringify(t.name)})">刪除</button>
+    </div>`).join('');
+}
+
+async function addCourseTag() {
+  const input = document.getElementById('newTagInput');
+  const name  = input.value.trim();
+  if (!name) return;
+  if (courseTags.find(t => t.name === name)) { showToast('此課程已存在'); return; }
+
+  // Optimistic
+  courseTags.push({ name });
+  renderSettingsPage();
+  input.value = '';
+  setSettingsState('pending', '儲存中…');
+
+  try {
+    const r = await apiPost({ action: 'addCourseTag', name });
+    if (!r.ok) throw new Error(r.error);
+    setSettingsState('ok', '已儲存');
+    showToast(`✓ 新增「${name}」`);
+  } catch (e) {
+    courseTags = courseTags.filter(t => t.name !== name);
+    renderSettingsPage();
+    setSettingsState('err', '儲存失敗');
+    showToast('❌ 新增失敗，請重試');
+    console.error(e);
+  }
+}
+
+async function deleteCourseTag(name) {
+  const idx = courseTags.findIndex(t => t.name === name);
+  if (idx < 0) return;
+  const removed = courseTags.splice(idx, 1)[0];
+  renderSettingsPage();
+  setSettingsState('pending', '刪除中…');
+
+  try {
+    const r = await apiPost({ action: 'deleteCourseTag', name });
+    if (!r.ok) throw new Error(r.error);
+    setSettingsState('ok', '已刪除');
+    showToast(`已刪除「${name}」`);
+  } catch (e) {
+    courseTags.splice(idx, 0, removed);
+    renderSettingsPage();
+    setSettingsState('err', '刪除失敗');
+    showToast('❌ 刪除失敗，請重試');
+    console.error(e);
+  }
+}
+
+document.getElementById('newTagInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addCourseTag();
+});
+
+// ── Mobile sidebar ────────────────────────
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('mob-open');
+  document.getElementById('mobOverlay').classList.add('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('mob-open');
+  document.getElementById('mobOverlay').classList.remove('show');
+}
+
+// ── API ───────────────────────────────────
+async function apiGet(action) {
+  const r = await fetch(`${API}?action=${encodeURIComponent(action)}`);
+  const d = await r.json();
+  if (!d.ok) throw new Error(d.error || 'API error');
+  return d;
+}
+async function apiPost(body) {
+  const r = await fetch(API, { method: 'POST', body: JSON.stringify(body) });
+  return r.json();
+}
+
+// ── Sync UI ───────────────────────────────
+function setSyncState(state, txt) {
+  const dot = document.getElementById('syncDot');
+  if (state === 'pending') dot.classList.add('pending');
+  else dot.classList.remove('pending');
+  // We keep the btn dot just as a state indicator
+}
+function setSettingsState(state, txt) {
+  const dot  = document.getElementById('settingsDot');
+  const span = document.getElementById('settingsTxt');
+  dot.className = 'status-dot' + (state === 'pending' ? ' pending' : state === 'err' ? ' err' : '');
+  span.textContent = txt;
+}
+
+// ── Utils ─────────────────────────────────
+function fmtDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>
