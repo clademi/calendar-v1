@@ -744,18 +744,19 @@
 </div>
 
 <script>
+/* 請將上方 HTML 的 <script> 區塊內容更新為以下程式碼 */
+
 // ══════════════════════════════════════════
 //  ⚙️  設定區 — 填入你的 Apps Script 網址
 // ══════════════════════════════════════════
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyYJ86gNmmI8JiIp9V-jjFMcieqibYN6iFKBuW0xuipEGLSXNelvvKFGg5dpKmfcsBh/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbySBhEu8pZa80LNdgh7t2KgKkmK7dYF4xBjXeHpxiJZdJQ564dLYwStZ4FCIJthqDfc/exec';
 // ══════════════════════════════════════════
 
 // ── State ──
 let currentYear, currentMonth;
-let calendarData  = {};   // { 'YYYY-MM-DD': { holiday: bool, courses: [{name,time}] } }
-let courseList    = [];   // ['課程A', '課程B', ...]
+let calendarData  = {};   
+let courseList    = [];   
 let editingDate   = null;
-let pendingDelete = [];   // entries to remove from current modal
 let isConfigured  = SCRIPT_URL !== 'YOUR_APPS_SCRIPT_URL_HERE';
 
 // ── Init ──
@@ -772,7 +773,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// ── Local storage fallback ──
 function loadLocal() {
   try {
     calendarData = JSON.parse(localStorage.getItem('calendarData') || '{}');
@@ -785,8 +785,6 @@ function saveLocal() {
   localStorage.setItem('courseList',   JSON.stringify(courseList));
 }
 
-// ── API helpers ──
-// Apps Script GET → 用 JSONP 繞過 CORS
 function apiGet(action, params = {}) {
   return new Promise((resolve, reject) => {
     const cbName = '_cb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
@@ -796,61 +794,25 @@ function apiGet(action, params = {}) {
     for (const [k,v] of Object.entries(params)) url.searchParams.set(k, v);
 
     const script = document.createElement('script');
-    const timer  = setTimeout(() => {
-      cleanup();
-      reject(new Error('timeout'));
-    }, 10000);
-
-    window[cbName] = (data) => {
-      cleanup();
-      resolve(data);
-    };
+    const timer  = setTimeout(() => { cleanup(); reject(new Error('timeout')); }, 10000);
+    window[cbName] = (data) => { cleanup(); resolve(data); };
 
     function cleanup() {
       clearTimeout(timer);
       delete window[cbName];
       if (script.parentNode) script.parentNode.removeChild(script);
     }
-
     script.onerror = () => { cleanup(); reject(new Error('script error')); };
     script.src = url.toString();
     document.head.appendChild(script);
   });
 }
 
-// Apps Script POST → 改用 JSONP GET 方式，確保寫入成功
 function apiFetch(action, payload = {}) {
-  return new Promise((resolve, reject) => {
-    const cbName = '_cb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-    const url = new URL(SCRIPT_URL);
-    url.searchParams.set('action', action);
-    url.searchParams.set('callback', cbName);
-    url.searchParams.set('payload', JSON.stringify(payload));
-
-    const script = document.createElement('script');
-    const timer  = setTimeout(() => {
-      cleanup();
-      reject(new Error('timeout'));
-    }, 10000);
-
-    window[cbName] = (data) => {
-      cleanup();
-      resolve(data);
-    };
-
-    function cleanup() {
-      clearTimeout(timer);
-      delete window[cbName];
-      if (script.parentNode) script.parentNode.removeChild(script);
-    }
-
-    script.onerror = () => { cleanup(); reject(new Error('script error')); };
-    script.src = url.toString();
-    document.head.appendChild(script);
-  });
+  // 透過 JSONP 模擬 POST 寫入
+  return apiGet(action, { payload: JSON.stringify(payload) });
 }
 
-// ── Load all data ──
 async function loadAll() {
   showLoading('載入資料中...');
   try {
@@ -858,7 +820,7 @@ async function loadAll() {
       apiGet('getCalendar'),
       apiGet('getCourses')
     ]);
-    calendarData = cal   || {};
+    calendarData = cal || {};
     courseList   = courses || [];
     saveLocal();
   } catch(e) {
@@ -870,72 +832,61 @@ async function loadAll() {
   }
 }
 
-// ── Sync from Sheets ──
 async function syncFromSheets() {
   if (!isConfigured) { showToast('請先設定 SCRIPT_URL'); return; }
   await loadAll();
   showToast('✓ 同步完成');
 }
 
-// ── Render Calendar ──
 function renderCalendar() {
-  const titles = ['一月','二月','三月','四月','五月','六月',
-                  '七月','八月','九月','十月','十一月','十二月'];
-  document.getElementById('monthTitle').textContent =
-    `${currentYear} 年 ${titles[currentMonth]}`;
-
-  const grid  = document.getElementById('calendarGrid');
+  const titles = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+  document.getElementById('monthTitle').textContent = `${currentYear} 年 ${titles[currentMonth]}`;
+  const grid = document.getElementById('calendarGrid');
   grid.innerHTML = '';
 
-  const today   = new Date();
+  const today = new Date();
   const firstDay = new Date(currentYear, currentMonth, 1);
-  // Mon=0 … Sun=6
-  let startDow = firstDay.getDay();      // 0=Sun…6=Sat
-  startDow = startDow === 0 ? 6 : startDow - 1;   // shift so Mon=0
+  let startDow = firstDay.getDay(); 
+  startDow = startDow === 0 ? 6 : startDow - 1; 
 
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const prevDays    = new Date(currentYear, currentMonth, 0).getDate();
-  const totalCells  = Math.ceil((startDow + daysInMonth) / 7) * 7;
+  const prevDays = new Date(currentYear, currentMonth, 0).getDate();
+  const totalCells = Math.ceil((startDow + daysInMonth) / 7) * 7;
 
   for (let i = 0; i < totalCells; i++) {
     const cell = document.createElement('div');
     cell.className = 'day-cell';
-
     let day, year, month, otherMonth = false;
     if (i < startDow) {
       day = prevDays - startDow + i + 1;
       month = currentMonth - 1;
-      year  = currentYear;
+      year = currentYear;
       if (month < 0) { month = 11; year--; }
       otherMonth = true;
     } else if (i >= startDow + daysInMonth) {
       day = i - startDow - daysInMonth + 1;
       month = currentMonth + 1;
-      year  = currentYear;
+      year = currentYear;
       if (month > 11) { month = 0; year++; }
       otherMonth = true;
     } else {
-      day   = i - startDow + 1;
+      day = i - startDow + 1;
       month = currentMonth;
-      year  = currentYear;
+      year = currentYear;
     }
 
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const isToday = (year === today.getFullYear() && month === today.getMonth() && day === today.getDate());
 
     if (otherMonth) cell.classList.add('other-month');
-    if (isToday)    cell.classList.add('today');
-
-    cell.dataset.date = dateStr;
+    if (isToday) cell.classList.add('today');
     cell.onclick = () => openDayModal(dateStr);
 
-    // Day number
     const numEl = document.createElement('div');
     numEl.className = 'day-num';
     numEl.textContent = day;
     cell.appendChild(numEl);
 
-    // Entries
     const entry = calendarData[dateStr];
     if (entry) {
       if (entry.holiday) {
@@ -944,7 +895,7 @@ function renderCalendar() {
         t.textContent = '🌿 休假';
         cell.appendChild(t);
       }
-      if (entry.courses && entry.courses.length > 0) {
+      if (entry.courses) {
         entry.courses.forEach(c => {
           const t = document.createElement('div');
           t.className = 'tag tag-course';
@@ -953,12 +904,10 @@ function renderCalendar() {
         });
       }
     }
-
     grid.appendChild(cell);
   }
 }
 
-// ── Month Navigation ──
 function changeMonth(delta) {
   currentMonth += delta;
   if (currentMonth > 11) { currentMonth = 0;  currentYear++; }
@@ -968,45 +917,35 @@ function changeMonth(delta) {
 
 function goToday() {
   const now = new Date();
-  currentYear  = now.getFullYear();
+  currentYear = now.getFullYear();
   currentMonth = now.getMonth();
   renderCalendar();
 }
 
-// ── Day Modal ──
 function openDayModal(dateStr) {
-  editingDate   = dateStr;
-  pendingDelete = [];
-
+  editingDate = dateStr;
   const [y, m, d] = dateStr.split('-');
-  const weekdays   = ['日','一','二','三','四','五','六'];
-  const dow        = new Date(+y, +m-1, +d).getDay();
-  document.getElementById('modalDateTitle').textContent =
-    `${y} 年 ${+m} 月 ${+d} 日（${weekdays[dow]}）`;
+  const weekdays = ['日','一','二','三','四','五','六'];
+  const dow = new Date(+y, +m-1, +d).getDay();
+  document.getElementById('modalDateTitle').textContent = `${y}/${+m}/${+d} (${weekdays[dow]})`;
 
-  const entry = calendarData[dateStr] || {};
+  const entry = calendarData[dateStr] || { holiday: false, courses: [] };
   document.getElementById('holidayToggle').checked = !!entry.holiday;
-
-  // Existing entries
   renderExistingEntries(entry);
 
-  // Populate course select
   const sel = document.getElementById('courseSelect');
   sel.innerHTML = '<option value="">— 選擇課程 —</option>';
   courseList.forEach(c => {
     const opt = document.createElement('option');
-    opt.value = c;
-    opt.textContent = c;
-    sel.appendChild(opt);
+    opt.value = c; opt.textContent = c; sel.appendChild(opt);
   });
-
-  document.getElementById('courseTime').value = '09:00';
+  document.getElementById('courseTime').value = '19:30';
   document.getElementById('dayModal').classList.add('open');
 }
 
 function renderExistingEntries(entry) {
   const container = document.getElementById('existingEntries');
-  const divider   = document.getElementById('entriesDivider');
+  const divider = document.getElementById('entriesDivider');
   container.innerHTML = '';
   const hasEntries = (entry.holiday || (entry.courses && entry.courses.length));
   divider.style.display = hasEntries ? 'block' : 'none';
@@ -1014,16 +953,14 @@ function renderExistingEntries(entry) {
   if (entry.holiday) {
     const el = document.createElement('div');
     el.className = 'entry-item holiday-entry';
-    el.innerHTML = `<span>🌿 休假</span>
-      <button class="entry-delete" title="移除" onclick="removeHoliday()">✕</button>`;
+    el.innerHTML = `<span>🌿 休假</span><button class="entry-delete" onclick="removeHoliday()">✕</button>`;
     container.appendChild(el);
   }
   if (entry.courses) {
     entry.courses.forEach((c, idx) => {
       const el = document.createElement('div');
       el.className = 'entry-item course-entry';
-      el.innerHTML = `<span>${c.time ? c.time+' ' : ''}${c.name}</span>
-        <button class="entry-delete" title="移除" onclick="removeCourse(${idx})">✕</button>`;
+      el.innerHTML = `<span>${c.time ? c.time+' ' : ''}${c.name}</span><button class="entry-delete" onclick="removeCourse(${idx})">✕</button>`;
       container.appendChild(el);
     });
   }
@@ -1031,40 +968,32 @@ function renderExistingEntries(entry) {
 
 function removeHoliday() {
   document.getElementById('holidayToggle').checked = false;
-  const entry = calendarData[editingDate] || {};
-  entry.holiday = false;
-  calendarData[editingDate] = entry;
-  renderExistingEntries(entry);
+  if (calendarData[editingDate]) calendarData[editingDate].holiday = false;
+  renderExistingEntries(calendarData[editingDate]);
 }
 
 function removeCourse(idx) {
-  const entry = calendarData[editingDate] || {};
-  if (entry.courses) entry.courses.splice(idx, 1);
-  calendarData[editingDate] = entry;
-  renderExistingEntries(entry);
+  if (calendarData[editingDate] && calendarData[editingDate].courses) {
+    calendarData[editingDate].courses.splice(idx, 1);
+  }
+  renderExistingEntries(calendarData[editingDate]);
 }
 
 function closeDayModal() {
   document.getElementById('dayModal').classList.remove('open');
-  editingDate = null;
   renderCalendar();
 }
 
 async function saveDay() {
-  const holiday   = document.getElementById('holidayToggle').checked;
+  const holiday = document.getElementById('holidayToggle').checked;
   const courseSel = document.getElementById('courseSelect').value;
-  const courseTime= document.getElementById('courseTime').value;
+  const courseTime = document.getElementById('courseTime').value;
 
-  const entry = calendarData[editingDate] || { holiday: false, courses: [] };
+  if (!calendarData[editingDate]) calendarData[editingDate] = { holiday: false, courses: [] };
+  const entry = calendarData[editingDate];
   entry.holiday = holiday;
-  if (!entry.courses) entry.courses = [];
+  if (courseSel) entry.courses.push({ name: courseSel, time: courseTime });
 
-  // Add new course if selected
-  if (courseSel) {
-    entry.courses.push({ name: courseSel, time: courseTime });
-  }
-
-  calendarData[editingDate] = entry;
   saveLocal();
   closeDayModal();
 
@@ -1072,101 +1001,54 @@ async function saveDay() {
     showLoading('儲存中...');
     try {
       await apiFetch('setDay', { date: editingDate, data: entry });
-      showToast('✓ 已儲存');
-    } catch(e) {
-      showToast('⚠️ 本機已儲存，同步失敗');
-    } finally {
-      hideLoading();
-    }
-  } else {
-    showToast('✓ 已儲存（本機）');
+      showToast('✓ 已儲存至雲端');
+    } catch(e) { showToast('⚠️ 同步失敗，已存於本機'); }
+    finally { hideLoading(); }
   }
 }
 
-// ── Course Manager ──
-function openCourseManager() {
-  renderCourseList();
-  document.getElementById('courseModal').classList.add('open');
-}
-
-function closeCourseModal() {
-  document.getElementById('courseModal').classList.remove('open');
-  document.getElementById('newCourseName').value = '';
-}
-
+function openCourseManager() { renderCourseList(); document.getElementById('courseModal').classList.add('open'); }
+function closeCourseModal() { document.getElementById('courseModal').classList.remove('open'); }
 function renderCourseList() {
   const list = document.getElementById('courseList');
   list.innerHTML = '';
-  if (courseList.length === 0) {
-    list.innerHTML = '<div style="color:var(--text-light);font-size:0.82rem;text-align:center;padding:12px;">尚無課程，請新增。</div>';
-    return;
-  }
   courseList.forEach((c, idx) => {
     const item = document.createElement('div');
     item.className = 'course-list-item';
-    item.innerHTML = `<span>${c}</span>
-      <button class="entry-delete" onclick="deleteCourseItem(${idx})" title="刪除">✕</button>`;
+    item.innerHTML = `<span>${c}</span><button class="entry-delete" onclick="deleteCourseItem(${idx})">✕</button>`;
     list.appendChild(item);
   });
 }
-
-function deleteCourseItem(idx) {
-  courseList.splice(idx, 1);
-  renderCourseList();
-}
-
+function deleteCourseItem(idx) { courseList.splice(idx, 1); renderCourseList(); }
 function addCourse() {
   const input = document.getElementById('newCourseName');
-  const name  = input.value.trim();
-  if (!name) return;
-  if (courseList.includes(name)) { showToast('課程已存在'); return; }
+  const name = input.value.trim();
+  if (!name || courseList.includes(name)) return;
   courseList.push(name);
-  input.value = '';
-  renderCourseList();
+  input.value = ''; renderCourseList();
 }
-
 async function saveCourses() {
-  saveLocal();
-  closeCourseModal();
+  saveLocal(); closeCourseModal();
   if (isConfigured) {
     showLoading('儲存課程清單...');
     try {
       await apiFetch('setCourses', { courses: courseList });
-      showToast('✓ 課程清單已儲存');
-    } catch(e) {
-      showToast('⚠️ 本機已儲存，同步失敗');
-    } finally {
-      hideLoading();
-    }
-  } else {
-    showToast('✓ 課程清單已儲存（本機）');
+      showToast('✓ 課程清單更新成功');
+    } catch(e) { showToast('⚠️ 儲存失敗'); }
+    finally { hideLoading(); }
   }
 }
 
-// ── UI Helpers ──
 function showToast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
+  t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2800);
 }
-
-function showLoading(msg = '處理中...') {
+function showLoading(msg) {
   document.getElementById('loadingText').textContent = msg;
   document.getElementById('loadingOverlay').classList.add('show');
 }
-
-function hideLoading() {
-  document.getElementById('loadingOverlay').classList.remove('show');
-}
-
-// Close modals on backdrop click
-document.getElementById('dayModal').addEventListener('click', function(e) {
-  if (e.target === this) closeDayModal();
-});
-document.getElementById('courseModal').addEventListener('click', function(e) {
-  if (e.target === this) closeCourseModal();
-});
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
 </script>
 </body>
 </html>
