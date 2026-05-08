@@ -747,7 +747,7 @@
 // ══════════════════════════════════════════
 //  ⚙️  設定區 — 填入你的 Apps Script 網址
 // ══════════════════════════════════════════
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqGlcBt28MMlS1AD9yK7lYHhRMTnoBK0KjtHHxSMT5drLfuEjRVHZN2koMwXKyKgvm/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwuT6C7fUsquUiXHV1Hm-FJ0rlSuOr0vf6B8GAPqaG8El6pnygDcn83PJjNnspp7oyP/exec';
 // ══════════════════════════════════════════
 
 // ── State ──
@@ -786,25 +786,48 @@ function saveLocal() {
 }
 
 // ── API helpers ──
+// Apps Script GET → 用 JSONP 繞過 CORS
+function apiGet(action, params = {}) {
+  return new Promise((resolve, reject) => {
+    const cbName = '_cb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const url = new URL(SCRIPT_URL);
+    url.searchParams.set('action', action);
+    url.searchParams.set('callback', cbName);
+    for (const [k,v] of Object.entries(params)) url.searchParams.set(k, v);
+
+    const script = document.createElement('script');
+    const timer  = setTimeout(() => {
+      cleanup();
+      reject(new Error('timeout'));
+    }, 10000);
+
+    window[cbName] = (data) => {
+      cleanup();
+      resolve(data);
+    };
+
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    script.onerror = () => { cleanup(); reject(new Error('script error')); };
+    script.src = url.toString();
+    document.head.appendChild(script);
+  });
+}
+
+// Apps Script POST → 用 no-cors（寫入不需要讀回傳值）
 async function apiFetch(action, payload = {}) {
   const url = new URL(SCRIPT_URL);
   url.searchParams.set('action', action);
-  const res = await fetch(url, {
+  await fetch(url, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(payload),
-    mode:    'no-cors'   // Apps Script requires no-cors for cross-origin POST
+    headers: { 'Content-Type': 'text/plain' },
+    body:    JSON.stringify({ action, ...payload }),
+    mode:    'no-cors'
   });
-  // no-cors → opaque response, so we re-fetch via GET for reads
-}
-
-async function apiGet(action, params = {}) {
-  const url = new URL(SCRIPT_URL);
-  url.searchParams.set('action', action);
-  for (const [k,v] of Object.entries(params)) url.searchParams.set(k, v);
-  const res  = await fetch(url);
-  const data = await res.json();
-  return data;
 }
 
 // ── Load all data ──
