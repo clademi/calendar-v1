@@ -255,7 +255,20 @@
     color: #5a7e5e;
     border-left: 2px solid var(--leaf);
   }
-
+  
+  /* 說明會：淺灰色系 */
+  .tag-briefing {
+    background: #f0f0f0; 
+    color: #666666;
+    border-left: 2px solid #cccccc;
+  }
+  
+  /* 實戰：橘色系 */
+  .tag-practice {
+    background: #fff5eb;
+    color: #d97706;
+    border-left: 2px solid #f59e0b;
+  }
   .tag-holiday {
     background: var(--rose-bg);
     color: var(--accent-deep);
@@ -926,7 +939,17 @@ function renderCalendar() {
       if (entry.courses) {
         entry.courses.forEach(c => {
           const t = document.createElement('div');
-          t.className = 'tag tag-course';
+          
+          // --- 顏色判斷邏輯開始 ---
+          let typeClass = 'tag-course'; // 預設綠色
+          if (c.name.includes('說明會')) {
+            typeClass = 'tag-briefing';
+          } else if (c.name.includes('實戰')) {
+            typeClass = 'tag-practice';
+          }
+          // --- 顏色判斷邏輯結束 ---
+
+          t.className = `tag ${typeClass}`;
           t.textContent = `${c.time ? c.time+' ' : ''}${c.name}`;
           cell.appendChild(t);
         });
