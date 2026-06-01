@@ -941,8 +941,13 @@ function renderCalendar() {
           const t = document.createElement('div');
           
           // --- 顏色判斷邏輯開始 ---
-          let typeClass = 'tag-course'; // 預設綠色
-          if (c.name.includes('說明會')) {
+          let typeClass = 'tag-course';
+          
+          if (
+            c.name.includes('說明會') ||
+            c.name.includes('下班') ||
+            c.name.includes('中午休息晚上跑')
+          ) {
             typeClass = 'tag-briefing';
           } else if (c.name.includes('實戰')) {
             typeClass = 'tag-practice';
